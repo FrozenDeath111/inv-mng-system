@@ -25,13 +25,21 @@ class ProductController extends ResponseController
         $pageNumber = $request->input('page', 1);
         $pageSize = $request->input('page_size', 10);
 
+        if (!$request->has('_sort') && !$request->has('_sort_type')) {
+            $request['_sort'] = 'asc';
+            $request['_sort_type'] = 'created_at';
+        }
+
         $query = $this->applyFilters($this->getModel()->query(), $request);
         if (count($this->relations) > 0) {
             $query = $query->with($this->relations);
         }
 
-        $data = $query->select('*')->paginate($pageSize, ['*'], 'page', $pageNumber);
-        return $this->setData($data)->sendResponse('Data retrieved successfully');
+        // $data = $query->select('*')->paginate($pageSize, ['*'], 'page', $pageNumber);
+        // return $this->setData($data)->sendResponse('Data retrieved successfully');
+
+        $data = $query->select('*')->get();
+        return $this->setData(['data' => $data])->sendResponse('Data retrieved successfully');
     }
 
     protected function applyFilters($query, Request $request)
@@ -52,7 +60,7 @@ class ProductController extends ResponseController
             })
             ->when(($request->has('_sort') && !empty($request->_sort)), function ($qr) use ($request) {
                 ($request->has('_sort_type') && !empty($request->_sort_type)) ?
-                    $qr->orderBy($request->_sort, $request->_sort_type) :
+                    $qr->orderBy($request->_sort_type, $request->_sort) :
                     $qr->orderBy($request->_sort);
             });
 

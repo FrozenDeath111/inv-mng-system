@@ -44,7 +44,7 @@
           </tr>
 
           <tr
-            v-for="product in products"
+            v-for="(product, index) in products"
             :key="product.id"
             class="hover:bg-gray-50/80 transition-colors"
           >
@@ -76,11 +76,10 @@
               </div>
             </td>
             <td class="px-6 py-4 text-right space-x-3">
-              <form @submit.prevent="handleAddInventory(product.id)" class="flex flex-col">
+              <form @submit.prevent="handleAddInventory(product.id, index)" class="flex flex-col">
                 <input
-                  v-model.number="form.added_stock"
+                  v-model="form[index]['added_stock']"
                   type="number"
-                  step="0.01"
                   class="w-full p-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                 />
                 <button
@@ -103,14 +102,19 @@
 </template>
 
 <script setup>
-import { ref, onMounted, reactive } from 'vue'
+import { ref, onMounted, reactive, computed } from 'vue'
 import api from '@/api/axios'
 
 const products = ref([])
 const loading = ref(true)
 
-const form = reactive({
-  added_stock: 0,
+const form = computed(() => {
+  let arr = []
+  for (let i = 0; i < products.value.length; i++) {
+    arr.push({ added_stock: 0 })
+  }
+
+  return arr
 })
 
 const fetchProducts = async () => {
@@ -129,14 +133,14 @@ const fetchProducts = async () => {
 
 onMounted(fetchProducts)
 
-const handleAddInventory = async (id) => {
+const handleAddInventory = async (id, index) => {
   loading.value = true
 
   try {
     await api({
       method: 'post',
       url: '/inventory/product/' + id,
-      data: form,
+      data: form.value[index],
     })
 
     await fetchProducts()

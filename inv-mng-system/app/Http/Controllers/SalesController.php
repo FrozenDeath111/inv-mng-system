@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Validator;
 
 class SalesController extends ResponseController
 {
+    protected $relations = array('product:id,name');
     protected function getModel()
     {
         return new Sale();
@@ -24,10 +25,21 @@ class SalesController extends ResponseController
         $pageNumber = $request->input('page', 1);
         $pageSize = $request->input('page_size', 10);
 
-        $query = $this->applyFilters($this->getModel()->query(), $request);
+        if (!$request->has('_sort') && !$request->has('_sort_type')) {
+            $request['_sort'] = 'desc';
+            $request['_sort_type'] = 'created_at';
+        }
 
-        $data = $query->select('*')->paginate($pageSize, ['*'], 'page', $pageNumber);
-        return $this->setData($data)->sendResponse('Data retrieved successfully');
+        $query = $this->applyFilters($this->getModel()->query(), $request);
+        if (count($this->relations) > 0) {
+            $query = $query->with($this->relations);
+        }
+
+        // $data = $query->select('*')->paginate($pageSize, ['*'], 'page', $pageNumber);
+        // return $this->setData($data)->sendResponse('Data retrieved successfully');
+
+        $data = $query->select('*')->get();
+        return $this->setData(['data' => $data])->sendResponse('Data retrieved successfully');
     }
 
     protected function applyFilters($query, Request $request)
@@ -51,7 +63,7 @@ class SalesController extends ResponseController
             })
             ->when(($request->has('_sort') && !empty($request->_sort)), function ($qr) use ($request) {
                 ($request->has('_sort_type') && !empty($request->_sort_type)) ?
-                    $qr->orderBy($request->_sort, $request->_sort_type) :
+                    $qr->orderBy($request->_sort_type, $request->_sort) :
                     $qr->orderBy($request->_sort);
             });
 
@@ -88,10 +100,7 @@ class SalesController extends ResponseController
 
         $input['total_price'] = $product->sell_price * $input['quantity'];
         $input['final_payment'] = $input['total_price'] + ($input['total_price'] * ($input['vat_amount'] / 100)) - $input['discount_amount'];
-        if ($input['customer_paid_amount'] < $input['final_payment']) {
-            return $this->setStatusCode(400)->sendError("Not Enough Money");
-        }
-        $input['due_amount'] = $input['customer_paid_amount'] - $input['final_payment'];
+        $input['due_amount'] = max(0, $input['final_payment'] - $input['customer_paid_amount']);
 
         try {
             DB::transaction(function () use ($input, $product, $inventory) {
