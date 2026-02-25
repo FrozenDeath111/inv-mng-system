@@ -35,6 +35,7 @@ cd inv-mng-system
 composer install
 cp .env.example .env
 php artisan key:generate
+php artisan passport:keys
 ```
 
 set the DB configure in .env file.
